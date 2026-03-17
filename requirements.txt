@@ -1,0 +1,24 @@
+# Core Deep Learning & Computer Vision
+torch
+torchvision
+opencv-python
+numpy
+
+# Object Detection & Tracking (Ultralytics includes ByteTrack/BoT-SORT)
+ultralytics
+lapx
+scipy
+
+# Face Recognition
+face_recognition
+dlib
+
+# Backend & API
+fastapi
+uvicorn
+pydantic
+python-dotenv
+
+# Dashboard
+streamlit
+pandas

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  surveillance-system:
+    build: .
+    container_name: smart_surveillance
+    ports:
+      - "8000:8000" # FastAPI
+      - "8501:8501" # Streamlit
+    volumes:
+      - ./data:/app/data
+      # To allow docker container to access local webcam
+      # - /dev/video0:/dev/video0
+    # devices:
+    #   - /dev/video0:/dev/video0
+    environment:
+      - CAMERA_SOURCE=0 # Use IP camera URL instead if no local webcam
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
