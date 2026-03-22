@@ -1,0 +1,38 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# YOLOv8 / PyTorch model weights
+*.pt
+*.pth
+*.engine
+*.onnx
+*.torchscript
+
+# Data directory (keep structure, ignore large files)
+data/logs/*.log
+data/screenshots/*.jpg
+data/screenshots/*.png
+data/models/*.pkl
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+.coverage

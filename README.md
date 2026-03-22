@@ -1,94 +1,140 @@
 # Real-Time Smart Surveillance AI System
 
-A portfolio-grade AI/ML project demonstrating computer vision, deep learning, real-time tracking, and behavior analysis.
+A production-grade AI/ML project demonstrating computer vision, deep learning, real-time tracking, behavior analysis, and a live web dashboard.
 
 ## Features
-- **Real-Time Human Detection**: Uses Ultralytics YOLOv8 for fast and accurate person detection.
-- **Multi-Object Tracking**: Uses ByteTrack for assigning unique IDs to moving individuals.
-- **Face Recognition**: Detects and identifies known individuals using facial embeddings (powered by `face_recognition`).
-- **Behavior Analysis**: Detects loitering and unauthorized entry into restricted zones.
-- **FastAPI Backend & Event Logging**: Asynchronous alert logging in a robust backend.
-- **Streamlit Dashboard**: A dashboard to monitor live security alerts and system status.
+- **Real-Time Person Detection**: YOLOv8n (`yolov8n.pt`) — automatically downloaded on first run.
+- **Multi-Object Tracking**: ByteTrack assigns stable IDs to individuals across frames.
+- **Face Recognition**: Identifies known individuals using facial embeddings (powered by `face_recognition`).
+- **Behavior Analysis**: Detects loitering and unauthorized entry into configurable restricted zones.
+- **Real-Time Alerts**: `FACE_MATCH`, `LOITERING`, and `RESTRICTED_ACCESS` events are logged and sent to the API.
+- **Screenshot Capture**: Annotated frames are saved to `data/screenshots/` whenever an alert fires.
+- **FastAPI Backend**: Serves events, a live MJPEG video stream (`/stream/video`), and screenshots.
+- **Streamlit Dashboard**: Displays the live feed, detection logs (colour-coded by type), recent screenshots, and system metrics.
 
 ## Folder Structure
 ```text
-smart-surveillance-system/
+Real-Time-Smart-Surveillance-AI-System/
 ├── core/
-│   ├── video_input.py          # Frame ingestion
-│   ├── detection.py            # YOLOv8 integration
-│   ├── face_recognition.py     # Embeddings and matching
-│   ├── behavior_analysis.py    # Loitering and zone rules
-│   └── alert_engine.py         # Asynchronous logging via API
+│   ├── video_input.py          # Frame ingestion from webcam / IP camera / video file
+│   ├── detection.py            # YOLOv8 + ByteTrack — person detection & tracking
+│   ├── face_recognition.py     # Face embeddings and identity matching
+│   ├── behavior_analysis.py    # Loitering & restricted-zone detection
+│   └── alert_engine.py         # Async alert dispatch — API POST + screenshot saving
 ├── pipeline/
-│   └── inference.py            # Main inference loop using all AI modules
+│   └── inference.py            # Main inference loop wiring all AI modules
 ├── api/
-│   └── main.py                 # FastAPI app
+│   └── main.py                 # FastAPI app (events, MJPEG stream, screenshots)
 ├── dashboard/
 │   └── app.py                  # Streamlit frontend
 ├── utils/
-│   ├── config.py               # Constants, thresholds, zones
+│   ├── config.py               # All configurable constants / thresholds / paths
+│   ├── frame_buffer.py         # Thread-safe shared frame buffer for MJPEG streaming
 │   └── logger.py               # Logging utility
-├── data/                       # Models, faces, logs
-├── main.py                     # Entry point to run pipeline
+├── data/
+│   ├── known_faces/            # Place person images here (see README inside)
+│   ├── logs/                   # system.log written here
+│   ├── models/                 # Cached face encodings (.pkl)
+│   └── screenshots/            # Alert screenshots saved here
+├── main.py                     # Entry point — starts pipeline + embedded API server
 ├── Dockerfile
 ├── docker-compose.yml
 └── requirements.txt
 ```
 
-## Model Setup & Datasets
-1. **YOLOv8**: The system automatically downloads `yolov8n.pt` on the first run.
-2. **Face Recognition**: Place images of known individuals in `data/known_faces/PersonName/image.jpg`. The system will compute embeddings on start.
-3. **Tracking**: `bytetrack.yaml` is provided out-of-the-box by the Ultralytics package.
-4. **Dataset Recommendations**: For fine-tuning YOLOv8 for specific environments, consider datasets like MS COCO, CrowdHuman, or MOT17/MOT20.
-
-## Running Locally
+## Quick Start
 
 ### Prerequisites
 - Python 3.10+
-- A working webcam or an IP camera stream URL.
+- A webcam **or** an IP camera / video file.
+- (Optional) CUDA-capable GPU for real-time inference.
 
-### Installation
+### 1 — Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-### 1. Start the API and Dashboard
-```bash
-# Start FastAPI (Terminal 1)
-uvicorn api.main:app --reload --port 8000
+### 2 — Add known faces *(optional)*
+```
+data/known_faces/
+├── John_Doe/
+│   └── photo.jpg
+└── Jane_Smith/
+    └── photo.jpg
+```
+The system computes embeddings on startup and caches them in `data/models/face_encodings.pkl`.  
+Delete that file to re-encode after adding new people.
 
-# Start Streamlit (Terminal 2)
+### 3 — Run (all-in-one)
+```bash
+# Webcam (default)
+python main.py
+
+# Video file
+python main.py --source path/to/video.mp4
+
+# IP camera
+python main.py --source "rtsp://user:pass@192.168.1.100/stream"
+```
+
+`main.py` starts the FastAPI server (port 8000) in a background thread **and** the inference pipeline in the same process.  
+This means the live MJPEG stream at `http://localhost:8000/stream/video` receives annotated frames directly from the pipeline.
+
+### 4 — Open the Streamlit dashboard
+In a **separate terminal**:
+```bash
 streamlit run dashboard/app.py
 ```
+Browse to `http://localhost:8501`.
 
-### 2. Run the AI Pipeline
+### 5 — Standalone API (advanced)
+If you prefer to run the API separately (e.g., to serve multiple pipelines):
 ```bash
-# Start Inference Pipeline (Terminal 3)
-# Uses webcam (source 0) by default. To use a video file or IP camera:
-# python main.py --source "path/to/video.mp4"
-python main.py
+# Terminal 1 — API only
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# Terminal 2 — Pipeline without embedded API
+python main.py --no-api
 ```
 
+## API Reference
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/` | Health check |
+| POST | `/events/` | Receive an alert event from the pipeline |
+| GET | `/events/?limit=N` | Fetch the N most recent events |
+| DELETE | `/events/` | Clear the event store |
+| GET | `/stream/video` | MJPEG live video feed |
+| GET | `/screenshots/` | List recent screenshot filenames |
+| GET | `/screenshots/{filename}` | Serve a screenshot image |
+
+Interactive API docs: `http://localhost:8000/docs`
+
 ## Docker Deployment
-
-To deploy using Docker (supports GPU via Nvidia Container Toolkit):
-
 ```bash
 docker-compose up --build
 ```
-*Note: Ensure your web camera is accessible to Docker, or use an IP camera URL in `docker-compose.yml` (`CAMERA_SOURCE`).*
+*For webcam access inside Docker, uncomment the `devices` section in `docker-compose.yml`.*
 
-## Performance Optimization Strategies
-- **GPU Acceleration**: Always ensure PyTorch and OpenCV are compiled with CUDA support for real-time inference.
-- **Frame Skipping**: If FPS drops, process behavior analytics or face recognition every $N$ frames instead of every single frame.
-- **TensorRT**: Convert YOLOv8 to TensorRT engine (`.engine`) for maximum inference speed on NVIDIA GPUs.
-- **Model Quantization**: Use INT8 optimization to reduce model footprint and improve inference speed on edge devices (e.g., Jetson Nano).
-- **Asynchronous Processing**: The Alert Engine already operates asynchronously to prevent HTTP requests from blocking frame processing. Complex tasks like face recognition can similarly be offloaded to worker threads.
+## Configuration
+All thresholds and paths live in `utils/config.py` and can be overridden with environment variables:
 
-## Future Extensions
-- **Weapon Detection**: Add a classification or secondary detection model to identify firearms or knives.
-- **Pose Estimation**: Incorporate YOLO-Pose to recognize physical actions (falling, fighting).
-- **Video Archiving**: Automatically record and compress video snippets corresponding to alert timestamps.
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CAMERA_SOURCE` | `0` | Video source |
+| `YOLO_MODEL_PATH` | `yolov8n.pt` | YOLO model file |
+| `CONFIDENCE_THRESHOLD` | `0.5` | Detection confidence |
+| `FACE_RECOGNITION_TOLERANCE` | `0.5` | Face match threshold |
+| `LOITERING_THRESHOLD_SECONDS` | `10` | Seconds before loitering alert |
+| `API_PORT` | `8000` | FastAPI bind port |
+
+## Performance Tips
+- **GPU**: Ensure PyTorch is installed with CUDA support.
+- **Frame Skipping**: Run face recognition every N frames for higher FPS.
+- **Larger Models**: Switch `YOLO_MODEL_PATH` to `yolov8s.pt` or `yolov8m.pt` for better accuracy at the cost of speed.
+- **TensorRT**: Export with `yolo export model=yolov8n.pt format=engine` for maximum GPU throughput.
+- **INT8 Quantization**: Reduces model size for edge devices (Jetson Nano, Raspberry Pi).
 
 ---
 *Built as a production-level demonstration of end-to-end AI System Architecture.*

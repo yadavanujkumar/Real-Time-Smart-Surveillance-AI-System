@@ -15,9 +15,10 @@ dlib
 
 # Backend & API
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 python-dotenv
+requests
 
 # Dashboard
 streamlit
