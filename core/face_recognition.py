@@ -1,19 +1,18 @@
 import cv2
 import face_recognition
 import numpy as np
-import os
 import pickle
-from pathlib import Path
 from utils.logger import logger
-from utils.config import DATA_DIR, MODELS_DIR
+from utils.config import DATA_DIR, MODELS_DIR, FACE_RECOGNITION_TOLERANCE
+
 
 class FaceRecognizer:
     """Handles face detection, embedding extraction, and face matching using face_recognition."""
-    
-    def __init__(self, tolerance=0.5):
+
+    def __init__(self, tolerance: float = FACE_RECOGNITION_TOLERANCE):
         self.tolerance = tolerance
-        self.known_face_encodings = []
-        self.known_face_names = []
+        self.known_face_encodings: list = []
+        self.known_face_names: list = []
         self.encodings_file = MODELS_DIR / "face_encodings.pkl"
         self.faces_dir = DATA_DIR / "known_faces"
         self.faces_dir.mkdir(parents=True, exist_ok=True)
